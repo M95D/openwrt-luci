@@ -279,16 +279,16 @@ return baseclass.extend({
 	},
 
 	pluginTitle(pluginName) {
-		const def = graphdefs[pluginName];
+		const def = graphdefs[pluginName] || graphdefs['generic'];
 		return (def ? def.title : null) || pluginName;
 	},
 
 	hasDefinition(pluginName) {
-		return (graphdefs[pluginName] != null);
+		return (graphdefs[pluginName] != null) || (graphdefs['generic'] != null);
 	},
 
 	hasInstanceDetails(hostInstance, pluginName, pluginInstance) {
-		const def = graphdefs[pluginName];
+		const def = graphdefs[pluginName] || graphdefs['generic'];
 
 		if (!def || typeof(def.rrdargs) != 'function')
 			return false;
@@ -625,6 +625,7 @@ return baseclass.extend({
 					if (source.total)
 						_has_totals = true;
 				}
+				}
 			}
 		}
 
@@ -720,7 +721,7 @@ return baseclass.extend({
 		const pngs = [];
 
 		/* check for a whole graph handler */
-		const def = graphdefs[plugin];
+		const def = graphdefs[plugin] || graphdefs['generic'];
 
 		if (def && typeof(def.rrdargs) == 'function') {
 			/* temporary image matrix */
