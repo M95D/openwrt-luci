@@ -7,12 +7,12 @@
 function subst(str, val) {
 	return str.replace(/%(H|pn|pi|dt|di|ds)/g, function(m, p1) {
 		switch (p1) {
-		case 'H':  return val.host   || '';
-		case 'pn': return val.plugin || '';
-		case 'pi': return val.pinst  || '';
-		case 'dt': return val.dtype  || '';
-		case 'di': return val.dinst  || '';
-		case 'ds': return val.dsrc   || '';
+		case 'H':  return val.host   || ''; 
+		case 'pn': return val.plugin || ''; 
+		case 'pi': return val.pinst  || ''; 
+		case 'dt': return val.dtype  || ''; 
+		case 'di': return val.dinst  || ''; 
+		case 'ds': return val.dsrc   || ''; 
 		}
 	});
 }
@@ -137,14 +137,17 @@ let graphdefs = {};
 return baseclass.extend({
 	__init__() {
 		this.opts = {};
+		console.debug('rrdtool: initialized baseclass instance');
 	},
 
 	load() {
+		console.debug('rrdtool: load() called');
 		return Promise.all([
 			L.resolveDefault(fs.list('/www' + L.resource('statistics/rrdtool/definitions')), []),
 			fs.trimmed('/proc/sys/kernel/hostname'),
 			uci.load('luci_statistics')
 		]).then(L.bind(function([definitions, hostname]) {
+			console.debug('rrdtool: loaded definitions length=%d hostname=%s', definitions.length, hostname);
 			this.opts.host      = uci.get('luci_statistics', 'collectd', 'Hostname')        || hostname;
 			this.opts.timespan  = uci.get('luci_statistics', 'rrdtool', 'default_timespan') || 3600;
 			this.opts.width     = uci.get('luci_statistics', 'rrdtool', 'image_width')      || 600;
@@ -164,6 +167,7 @@ return baseclass.extend({
 					continue;
 
 				tasks.push(L.require('statistics.rrdtool.definitions.' + m[1]).then(L.bind(function(name, def) {
+					console.debug('rrdtool: loaded graph definition %s', name);
 					graphdefs[name] = def;
 				}, this, m[1])));
 			}
@@ -174,8 +178,9 @@ return baseclass.extend({
 
 	ls() {
 		const dir = this.opts.rrdpath;
-
+		console.debug('rrdtool: ls() listing dir=%s', dir);
 		return L.resolveDefault(fs.list(dir), []).then(function(entries) {
+			console.debug('rrdtool: ls() entries count=%d', entries.length);
 			const tasks = [];
 
 			for (let entr of entries) {
@@ -190,6 +195,7 @@ return baseclass.extend({
 							continue;
 
 						tasks.push(L.resolveDefault(fs.list(dir + '/' + this.name + '/' + entrj.name), []).then(L.bind(function(entries) {
+							console.debug('rrdtool: ls() found host=%s pluginDir=%s entries=%d', this.name, entrj.name, entries.length);
 							return Object.assign(this, {
 								entries: entries.filter(function(e) {
 									return e.type == 'file' && e.name.match(/\.rrd$/);
@@ -211,7 +217,9 @@ return baseclass.extend({
 	},
 
 	scan() {
+		console.debug('rrdtool: scan() called');
 		return this.ls().then(L.bind(function(entries) {
+			console.debug('rrdtool: scan() processing entries count=%d', entries.length);
 			rrdtree = {};
 
 			for (let entr of entries) {
@@ -242,6 +250,7 @@ return baseclass.extend({
 
 						rrdtree[hostInstance][pluginName][pluginInstance][dataType] = rrdtree[hostInstance][pluginName][pluginInstance][dataType] || [];
 						rrdtree[hostInstance][pluginName][pluginInstance][dataType].push(dataInstance);
+						console.debug('rrdtool: scan() host=%s plugin=%s inst=%s dtype=%s di=%s', hostInstance, pluginName, pluginInstance, dataType, dataInstance);
 					}
 				}
 			}
@@ -249,14 +258,17 @@ return baseclass.extend({
 	},
 
 	hostInstances() {
+		console.debug('rrdtool: hostInstances() called');
 		return Object.keys(rrdtree).sort();
 	},
 
 	pluginNames(hostInstance) {
+		console.debug('rrdtool: pluginNames() for host=%s', hostInstance);
 		return Object.keys(rrdtree[hostInstance] || {}).sort();
 	},
 
 	pluginInstances(hostInstance, pluginName) {
+		console.debug('rrdtool: pluginInstances() host=%s plugin=%s', hostInstance, pluginName);
 		return Object.keys((rrdtree[hostInstance] || {})[pluginName] || {}).sort(function(a, b) {
 			const x = a.match(/^(\d+)\b/);
 			const y = b.match(/^(\d+)\b/);
@@ -271,23 +283,26 @@ return baseclass.extend({
 	},
 
 	dataTypes(hostInstance, pluginName, pluginInstance) {
+		console.debug('rrdtool: dataTypes() host=%s plugin=%s instance=%s', hostInstance, pluginName, pluginInstance);
 		return Object.keys(((rrdtree[hostInstance] || {})[pluginName] || {})[pluginInstance] || {}).sort();
 	},
 
 	dataInstances(hostInstance, pluginName, pluginInstance, dataType) {
+		console.debug('rrdtool: dataInstances() host=%s plugin=%s instance=%s dtype=%s', hostInstance, pluginName, pluginInstance, dataType);
 		return ((((rrdtree[hostInstance] || {})[pluginName] || {})[pluginInstance] || {})[dataType] || []).sort();
 	},
 
 	pluginTitle(pluginName) {
-		const def = graphdefs[pluginName] || graphdefs['generic'];
-		return (def ? def.title : null) || pluginName;
+		return (graphdefs[pluginName] || graphdefs['generic']) ? ((graphdefs[pluginName] || graphdefs['generic']).title || pluginName) : pluginName;
 	},
 
 	hasDefinition(pluginName) {
+		console.debug('rrdtool: hasDefinition() plugin=%s', pluginName);
 		return (graphdefs[pluginName] != null) || (graphdefs['generic'] != null);
 	},
 
 	hasInstanceDetails(hostInstance, pluginName, pluginInstance) {
+		console.debug('rrdtool: hasInstanceDetails() host=%s plugin=%s instance=%s', hostInstance, pluginName, pluginInstance);
 		const def = graphdefs[pluginName] || graphdefs['generic'];
 
 		if (!def || typeof(def.rrdargs) != 'function')
@@ -317,10 +332,12 @@ return baseclass.extend({
 	},
 
 	mkrrdpath(/* ... */) {
-		return '%s/%s.rrd'.format(
+		const p = '%s/%s.rrd'.format(
 			this.opts.rrdpath,
 			this._mkpath.apply(this, arguments)
 		).replace(/[\\:]/g, '\\$&');
+		console.debug('rrdtool: mkrrdpath() -> %s', p);
+		return p;
 	},
 
 	_forcelol(list) {
@@ -328,6 +345,7 @@ return baseclass.extend({
 	},
 
 	_rrdtool(def, rrd, timespan, width, height, cache) {
+		console.debug('rrdtool: _rrdtool() building cmdline');
 		const cmdline = [
 			'graph', '-', '-a', 'PNG',
 			'-s', 'NOW-%s'.format(timespan || this.opts.timespan),
@@ -345,19 +363,28 @@ return baseclass.extend({
 			cmdline.push(opt);
 		}
 
+		console.debug('rrdtool: _rrdtool() cmdline=%o', cmdline);
+
 		if (L.isObject(cache)) {
 			const key = sfh(cmdline.join('\0'));
+			console.debug('rrdtool: _rrdtool() using cache key=%s', key);
 
-			if (!cache.hasOwnProperty(key))
+			if (!cache.hasOwnProperty(key)) {
+				console.debug('rrdtool: _rrdtool() cache miss, executing rrdtool');
 				cache[key] = fs.exec_direct('/usr/bin/rrdtool', cmdline, 'blob', true);
+			} else {
+				console.debug('rrdtool: _rrdtool() cache hit');
+			}
 
 			return cache[key];
 		}
 
+		console.debug('rrdtool: _rrdtool() executing rrdtool (no cache)');
 		return fs.exec_direct('/usr/bin/rrdtool', cmdline, 'blob', true);
 	},
 
 	_generic(opts, host, plugin, plugin_instance, dtype, index) {
+		console.debug('rrdtool: _generic() start plugin=%s instance=%s dtype=%s index=%s', plugin, plugin_instance, dtype, index);
 		const defs = [];
 		const gopts = this.opts;
 		let _args = [];
@@ -376,6 +403,7 @@ return baseclass.extend({
 			const rrd  = source.rrd;
 			const ds   = source.ds || 'value';
 
+			console.debug('rrdtool: __def() source=%o', source);
 			_args.push(
 				'DEF:%s_avg_raw=%s:%s:AVERAGE'.format(inst, rrd, ds),
 				'CDEF:%s_avg=%s_avg_raw,%s'.format(inst, inst, source.transform_rpn)
@@ -402,6 +430,7 @@ return baseclass.extend({
 			else
 				prev = _stack_pos[_stack_pos.length - 1];
 
+			console.debug('rrdtool: __cdef() processing source=%s prev=%s', source.sname, prev);
 			/* is first source in stack or overlay source: source_stk = source_nnl */
 			if (prev == null || source.overlay) {
 				/* create cdef statement for cumulative stack (no NaNs) and also
@@ -469,6 +498,7 @@ return baseclass.extend({
 		function __line(source) {
 			let line_color, area_color, legend, variable;
 
+			console.debug('rrdtool: __line() source=%s title=%s', source.sname, source.title);
 			/* find colors: try source, then opts.colors; fall back to random color */
 			if (typeof(source.color) == 'string') {
 				line_color = source.color;
@@ -508,6 +538,7 @@ return baseclass.extend({
 			const numfmt = opts.number_format || '%6.1lf';
 			const totfmt = opts.totals_format || '%5.1lf%s';
 
+			console.debug('rrdtool: __gprint() source=%s', source.sname);
 			/* don't include MIN if rrasingle is enabled */
 			if (!gopts.rrasingle)
 				_args.push('GPRINT:%s_min:MIN:\tMin\\: %s'.format(source.sname, numfmt));
@@ -533,6 +564,7 @@ return baseclass.extend({
 
 		/* find data types */
 		const data_types = dtype ? [ dtype ] : (opts.data.types || []);
+		console.debug('rrdtool: _generic() data_types initial=%o', data_types);
 
 		if (!(dtype || opts.data.types)) {
 			if (L.isObject(opts.data.instances))
@@ -541,6 +573,8 @@ return baseclass.extend({
 				data_types.push.apply(data_types, Object.keys(opts.data.sources));
 
 		}
+
+		console.debug('rrdtool: _generic() data_types final=%o', data_types);
 
 		/* iterate over data types */
 		for (let dt of data_types) {
@@ -556,6 +590,8 @@ return baseclass.extend({
 
 			if (!Array.isArray(data_instances) || data_instances.length == 0)
 				data_instances = [ '' ];
+
+			console.debug('rrdtool: _generic() dt=%s data_instances=%o', dt, data_instances);
 
 			/* iterate over data instances */
 			for (let di of data_instances) {
@@ -574,6 +610,8 @@ return baseclass.extend({
 					else if (Array.isArray(opts.data.sources[dt]))
 						data_sources = opts.data.sources[dt];
 				}
+
+				console.debug('rrdtool: _generic() dname=%s data_sources=%o', dname, data_sources);
 
 				/* iterate over data sources */
 				for (let ds of data_sources) {
@@ -613,6 +651,7 @@ return baseclass.extend({
 						sname: String(_sources.length + 1) + dt
 					};
 
+					console.debug('rrdtool: _generic() adding source=%o', source);
 					_sources.push(source);
 
 					/* generate datasource title */
@@ -629,6 +668,8 @@ return baseclass.extend({
 			}
 		}
 
+		console.debug('rrdtool: _generic() total_sources=%d', _sources.length);
+
 		/*
 		 * construct diagrams
 		 */
@@ -639,6 +680,8 @@ return baseclass.extend({
 
 		if (opts.per_instance)
 			instances = this.dataInstances(host, plugin, plugin_instance, _sources[0].type);
+
+		console.debug('rrdtool: _generic() instances=%o', instances);
 
 		/* iterate over instances */
 		for (let inst of instances) {
@@ -676,6 +719,8 @@ return baseclass.extend({
 				return +x - +y;
 			});
 
+			console.debug('rrdtool: _generic() sources sorted');
+
 			/* define colors in order */
 			if (opts.ordercolor)
 				for (let j = 0; j < _sources.length; j++)
@@ -707,6 +752,7 @@ return baseclass.extend({
 
 			/* push arg stack to definition list */
 			defs.push(_args);
+			console.debug('rrdtool: _generic() pushed defs count=%d', defs.length);
 
 			/* reset stacks */
 			_args = [];
@@ -718,6 +764,7 @@ return baseclass.extend({
 	},
 
 	render(plugin, plugin_instance, is_index, hostname, timespan, width, height, cache) {
+		console.debug('rrdtool: render() plugin=%s instance=%s is_index=%s host=%s', plugin, plugin_instance, is_index, hostname);
 		const pngs = [];
 
 		/* check for a whole graph handler */
@@ -729,6 +776,7 @@ return baseclass.extend({
 
 			/* get diagram definitions */
 			const optlist = this._forcelol(def.rrdargs(this, hostname, plugin, plugin_instance, null, is_index));
+			console.debug('rrdtool: render() optlist length=%d', optlist.length);
 			for (let i = 0; i < optlist.length; i++) {
 				const opt = optlist[i];
 				if (!is_index || !opt.detail) {
@@ -736,11 +784,13 @@ return baseclass.extend({
 
 					/* get diagram definition instances */
 					const diagrams = this._generic(opt, hostname, plugin, plugin_instance, null, i);
+					console.debug('rrdtool: render() diagrams for opt %d count=%d', i, diagrams.length);
 
 					/* render all diagrams */
 					for (let j = 0; j < diagrams.length; j++) {
 						/* exec */
 						_images[i][j] = this._rrdtool(diagrams[j], null, timespan, width, height, cache);
+						console.debug('rrdtool: render() started rrdtool for opt=%d diagram=%d', i, j);
 					}
 				}
 			}
@@ -751,6 +801,7 @@ return baseclass.extend({
 					pngs.push(_images[x][y]);
 		}
 
+		console.debug('rrdtool: render() pngs count=%d', pngs.length);
 		return Promise.all(pngs);
 	}
 });
