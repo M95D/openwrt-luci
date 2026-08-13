@@ -293,17 +293,17 @@ return baseclass.extend({
 	},
 
 	pluginTitle(pluginName) {
-		return (graphdefs[pluginName] || graphdefs['generic']) ? ((graphdefs[pluginName] || graphdefs['generic']).title || pluginName) : pluginName;
+		return (graphdefs[pluginName] || graphdefs['others']) ? ((graphdefs[pluginName] || graphdefs['others']).title || pluginName) : pluginName;
 	},
 
 	hasDefinition(pluginName) {
 		console.debug('rrdtool: hasDefinition() plugin=%s', pluginName);
-		return (graphdefs[pluginName] != null) || (graphdefs['generic'] != null);
+		return (graphdefs[pluginName] != null) || (graphdefs['others'] != null);
 	},
 
 	hasInstanceDetails(hostInstance, pluginName, pluginInstance) {
 		console.debug('rrdtool: hasInstanceDetails() host=%s plugin=%s instance=%s', hostInstance, pluginName, pluginInstance);
-		const def = graphdefs[pluginName] || graphdefs['generic'];
+		const def = graphdefs[pluginName] || graphdefs['others'];
 
 		if (!def || typeof(def.rrdargs) != 'function')
 			return false;
@@ -768,7 +768,7 @@ return baseclass.extend({
 		const pngs = [];
 
 		/* check for a whole graph handler */
-		const def = graphdefs[plugin] || graphdefs['generic'];
+		const def = graphdefs[plugin] || graphdefs['others'];
 
 		if (def && typeof(def.rrdargs) == 'function') {
 			/* temporary image matrix */
